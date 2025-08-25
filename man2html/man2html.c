@@ -29,7 +29,7 @@
 
 #define SIZE(a)	(sizeof(a)/sizeof(*a))
 #define DOCTYPE "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n"
-#define CONTENTTYPE "Content-type: text/html\n\n"
+#define CONTENTTYPE "Content-type: text/html; charset=UTF-8\n\n"
 
 static char NEWLINE[2]="\n";
 static char idxlabel[6] = "ixAAA";
@@ -669,6 +669,7 @@ scan_escape(char *c) {
     case '^':
     case '!':
     case '%':
+    case ':':
     case 'a':
     case 'd':
     case 'r':
@@ -902,8 +903,8 @@ static char *scan_format(char *c, TABLEROW **result, int *maxcol)
 	case 'f': case 'F':
 	    c++;
 	    curfield->font = toupper(*c);
-	    c++;
-	    if (!isspace(*c)) c++;
+	    if (*c != '.') c++;
+	    if (*c != '.' && !isspace(*c)) c++;
 	    break;
 	case 't': case 'T': curfield->valign='t'; c++; break;
 	case 'p': case 'P':
@@ -1187,7 +1188,7 @@ scan_table(char *c) {
 		else {
 		    do {
 			ti2=ti2->next;
-		    } while (ti2 && curfield->align=='S');
+		    } while (ti2 && ti2->align=='S');
 		}
 		break;
 	    }
@@ -1261,7 +1262,13 @@ scan_table(char *c) {
 	    curfield=curfield->next;
 	}
 	out_html("</TR>\n");
-	currow=currow->next;
+	if (currow->next)
+		currow=currow->next;
+	else {
+		/* clear_table() needs the very last row of the table */
+		clear_table(currow);
+		currow=layout=NULL;
+	}
     }
     if (box && !border) out_html("</TABLE>");
     out_html("</TABLE>");
@@ -1617,7 +1624,7 @@ char label[5]="lbAA";
 static void
 manidx_need(int m) {
 	if (mip + m >= manidxlen) {
-		manidxlen += 10000;
+		manidxlen = ((mip + m) / 4096 + 1) * 4096;
 		manidx = xrealloc(manidx, manidxlen);
 	}
 }
@@ -2072,7 +2079,7 @@ scan_request(char *c) {
 	    j=0;
 	    while (*c!='\n') {
 		sl=scan_expression(c, &tabstops[j]);
-		if (*c == '-' || *c == '+') tabstops[j]+=tabstops[j-1];
+		if (j && (*c == '-' || *c == '+')) tabstops[j]+=tabstops[j-1];
 		c=sl;
 		while (*c == ' ' || *c == '\t') c++;
 		if (j+1 < SIZE(tabstops))
@@ -2564,10 +2571,10 @@ scan_request(char *c) {
 	     }
 	     break;
 	case V('S','m'):	/* BSD mandoc - called with arg on/off */
+  case V('B','k'): /* BSD mandoc - may be called with -words arg*/
+	case V('E','k'):	/* BSD mandoc */
 	     c=skip_till_newline(c);
 	     break;
-	case V('B','k'):	/* BSD mandoc */
-	case V('E','k'):	/* BSD mandoc */
 	case V('D','d'):	/* BSD mandoc */
 	case V('O','s'):	/* BSD mandoc */
 	     trans_char(c,'"','\a');
@@ -2660,26 +2667,31 @@ scan_request(char *c) {
 	     /* Translate xyz 1 to xyz(1) 
 	      * Allow for multiple spaces.  Allow the section to be missing.
 	      */
-	     char buff[100];
-	     char *bufptr;
+	     char buff[128];
+	     buff[0] = '\0';
+	     /* scan_troff_mandoc(char *c, ...) called below refers to a c[-1],
+	     * so make sure the following code treats buff as starting at
+	     * index 1, not 0.
+	     */
+	     const size_t bufflen = SIZE(buff) - 1;
+	     char *bufptr = buff + 1;
 	     trans_char(c,'"','\a');
-	     bufptr = buff;
 	     c = c+j;
 	     if (*c == '\n') c++; /* Skip spaces */
 	     while (isspace(*c) && *c != '\n') c++;
-	     while (isalnum(*c) && bufptr < buff + SIZE(buff)-4) {
+	     while (isalnum(*c) && bufptr < buff + bufflen - 4) {
 		  /* Copy the xyz part */
 		  *bufptr++ = *c++;
 	     }
 	     while (isspace(*c) && *c != '\n') c++;	/* Skip spaces */
 	     if (isdigit(*c)) { /* Convert the number if there is one */
 		  *bufptr++ = '(';
-		  while (isalnum(*c) && bufptr < buff + SIZE(buff)-3) {
+	     while (isalnum(*c) && bufptr < buff + bufflen - 3) {
 		       *bufptr++ = *c++;
 		  }
 		  *bufptr++ = ')';
 	     }
-	     while (*c != '\n' && bufptr < buff + SIZE(buff)-2) {
+	    while (*c != '\n' && bufptr < buff + bufflen - 2) {
 		  /* Copy the remainder */
 		  if (!isspace(*c)) {
 		       *bufptr++ = *c;
@@ -2687,8 +2699,8 @@ scan_request(char *c) {
 		  c++;
 	     }
 	     *bufptr++ = '\n';
-	     *bufptr = 0;
-	     scan_troff_mandoc(buff, 1, NULL);
+	     *bufptr = '\0';
+	     scan_troff_mandoc(buff + 1, 1, NULL);
 	     out_html(NEWLINE);
 	     if (fillout) curpos++; else curpos=0;
 	}
@@ -2847,33 +2859,32 @@ scan_request(char *c) {
 	     static char *mandoc_name = 0;
 	     trans_char(c,'"','\a');
 	     c=c+j;
+	     while (*c == ' ' || *c == '\t') c++;
+		   if (!mandoc_name) {
+           /* Save the name of the first .Nm call */
+		       char *end, t=0 /* just for gcc */;
+		       end = strpbrk(c, "\t \n");
+		       if (end && end != c) {
+			    t = *end;
+			    *end = 0;
+		        mandoc_name = xstrdup(c);
+			    *end = t;
+		       }
+         }
 	     if (mandoc_synopsis) {
 		  /*
-		   * Break lines only in the Synopsis. 
+		   * Break lines only in the Synopsis.
 		   * The Synopsis section seems to be treated
 		   * as a special case - Bummer!
 		   */
 		  static int count = 0; /* Don't break on the first Nm */
 		  if (count) {
 		       out_html("<BR>");
-		  } else {
-		       char *end, t=0 /* just for gcc */;
-		       end = strchr(c, '\n');
-		       if (end) {
-			    t = *end;
-			    *end = 0;
-		       }
-		       if (mandoc_name)
-			    free(mandoc_name);
-		       mandoc_name = xstrdup(c);
-		       if (end)
-			    *end = t;
 		  }
 		  count++;
-	     }			
+	     }
 	     out_html(change_to_font('B'));
-	     while (*c == ' ' || *c == '\t') c++;
-	     if (*c == '\n') {
+	     if (*c == '\n' || (ispunct(*c) && *(c+1) == '\n')) {
 		  /*
 		   * If Nm has no argument, use one from an earlier
 		   * Nm command that did have one.  Hope there aren't
@@ -2881,7 +2892,8 @@ scan_request(char *c) {
 		   */
 		  if (mandoc_name)
 		       out_html(mandoc_name);
-	     } else {
+	     }
+	     if (*c != '\n') {
 		  c=scan_troff_mandoc(c, 1, NULL);
 	     }
 	     out_html(change_to_font('R'));
