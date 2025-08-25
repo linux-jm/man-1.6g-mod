@@ -18,13 +18,13 @@ static int relat_html_style = 0;
 /*
  * Either the user is non-local (or local, but using httpd),
  * in which case we use http:/cgi-bin, or the user is local
- * and uses lynx, and we use lynxcgi:/home/httpd/cgi-bin.
+ * and uses lynx, and we use lynxcgi:/usr/lib/cgi-bin.
  */
 
 static char *man2htmlpath = "/cgi-bin/man/man2html"; 	/* default */
 static char *cgibase_format = "http://%s"; 		/* host.domain:port */
 static char *cgibase_ll_format = "lynxcgi:%s"; 		/* directory */
-static char *cgibase = "http://localhost";		/* default */
+static char *cgibase = "";				/* default */
 
 /*
  * Separator between URL and argument string.
@@ -82,13 +82,13 @@ void print_sig()
 {
     char timebuf[TIMEBUFSZ];
     struct tm *timetm;
-    time_t clock;
+    time_t now;
 
     timebuf[0] = 0;
 #ifdef TIMEFORMAT
     sprintf(timebuf, "Time: ");
-    clock=time(NULL);
-    timetm=gmtime(&clock);
+    now=time(NULL);
+    timetm=gmtime(&now);
     strftime(timebuf+6, TIMEBUFSZ-6, TIMEFORMAT, timetm);
     timebuf[TIMEBUFSZ-1] = 0;
 #endif
@@ -97,7 +97,7 @@ void print_sig()
 
 void
 include_file_html(char *g) {
-     printf("<A HREF=\"file:/usr/include/%s\">%s</A>&gt;", g,g);
+     printf("<A HREF=\"file:///usr/include/%s\">%s</A>&gt;", g,g);
 }
 
 void
