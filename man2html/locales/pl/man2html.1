@@ -1,0 +1,155 @@
+'\" t
+.\" -*- coding: UTF-8 -*-
+.\" Man page for man2html
+.\" aeb, 980101
+.\"
+.\"*******************************************************************
+.\"
+.\" This file was generated with po4a. Translate the source file.
+.\"
+.\"*******************************************************************
+.TH man2html 1 "1 stycznia 1998"
+.SH NAZWA
+man2html \- formatuje stronę man w html\-u
+.SH SKŁADNIA
+\fBman2html\fP [\fIopcje\fP] [\fIplik\fP]
+.SH OPIS
+\fBman2html\fP wykonuje konwersję strony podręcznika systemowego zapisanej w
+podanym \fIpliku\fP (lub pobieranej ze standardowego wejścia, w przypadku gdy
+nie podano nazwy pliku lub podano nazwę "\-") z używanego przez man formatu
+nroff na html i drukuje wynik na stdout. Obsługuje tbl, ale nie zna eqn. Kod
+zakończenia wynosi 0. Jeśli coś się nie powiedzie, to na standardowe wyjście
+wypisywana jest strona z komunikatem błędu.
+
+.\" (See
+.\" .BR man (1)
+.\" for info on how to browse man pages via
+.\" .BR man2html .
+.\" Usually it would suffice to put "MANHTMLPAGER=/usr/bin/lynx"
+.\" in the environment.)
+Może być wykorzystywane jako samodzielne narzędzie, ale zasadniczo
+zaprojektowano je do zastosowań pomocniczych, by umożliwić użytkownikom
+przeglądanie stron podręcznika systemowego za pomocą przeglądarki html,
+takiej jak np.  \fBlynx\fP(1), \fBxmosaic\fP(1)  czy \fBnetscape\fP(1).
+
+Główną część \fBman2html\fP stanowi konwerter troff\-na\-html napisany przez
+Richarda Verhoevena (rcb5@win.tue.nl). Dodaje on odnośniki hipertekstowe do
+następujących konstrukcji:
+.LP
+.TS
+l l.
+foo(3x)	"http://localhost/cgi\-bin/man/man2html?3x+foo"
+metoda://łańcuch	"metoda://łańcuch"
+www.nazwa.hosta	"http://www.host.name"
+ftp.nazwa.hosta	"ftp://ftp.host.name"
+nazwa@host	"mailto:name@host"
+<string.h>	"file:/usr/include/string.h"
+.TE
+.LP
+(Pierwsza z nich może być dopasowywana do potrzeb przez opcje \- zobacz
+niżej). Nie jest wykonywane żadne wyszukiwanie \- obiekty wskazywane przez
+tworzone odnośniki nie muszą istnieć. Tworzony jest też indeks wewnętrznych
+odnośników hipertekstowych do różnych sekcji strony, co ułatwia orientację w
+dużych stronach jak \fBbash\fP(1).
+
+.SH OPCJE
+Przy odczycie ze standardowego wejścia nie zawsze jest jasne, jak wykonać
+rozwinięcie żądania .so. Opcja \-D pozwala skryptowi na zdefiniowanie
+katalogu roboczego.
+.LP
+.TP
+\fB\-\^D\fP\fI ścieżka\fP
+Przed rozpoczęciem konwersji obcina ostatnie dwie części ścieżki i w
+odniesieniu do pozostałej części wykonuje \fIchdir\fP(\fIdir\fP).
+.LP
+Opcja \-E umożliwia skryptowi cgi łatwe tworzenie komunikatów o błędach.
+.LP
+.TP
+\fB\-\^E\fP\fI łańcuch\fP
+Tworzy w wyniku stronę zawierającą zadany komunikat o błędzie.
+.LP
+Ogólną postacią odnośnika hipertekstowego generowanego dla odsyłacza strony
+man jest
+.IP
+<metoda:ścieżkacgi><ścieżkaman2html><separator><stronaman>
+.LP
+z wartością domyślną pokazaną powyżej. Składowe tego odnośnika ustawiane są
+przy pomocy różnych opcji.
+.TP
+\fB\-\^h\fP
+.\" This is the default.
+Ustawia metoda:ścieżkacgi na http://localhost.
+.TP
+\fB\-\^HP\fP\fI host[.domena][:port]\fP
+Ustawia metoda:ścieżkacgi na http://\fIhost.domena:port\fP.
+.TP
+\fB\-\^l\fP
+Ustawia metoda:ścieżkacgi na lynxcgi:\fI/usr/lib\fP.
+.TP
+\fB\-\^L\fP\fI katalog\fP
+Ustawia metoda:ścieżkacgi na lynxcgi:\fIkatalog\fP.
+.TP
+\fB\-\^M\fP\fI ścieżkaman2html\fP
+Ustawia ścieżkę man2html, jaka ma być użyta. Domyślnie jest to
+\fI/cgi\-bin/man/man2html\fP.
+.TP
+\fB\-\^p\fP
+Ustawia separator na "/".
+.TP
+\fB\-\^q\fP
+Ustawia separator na "?". Jest to separator domyślny.
+.TP
+\fB\-\^r\fP
+Używa względnych ścieżek html, zamiast ścieżek typu cgi\-bin.
+.LP
+Na maszynach, na których nie jest uruchomiony \fBhttpd\fP, można do
+przeglądania stron man używać przeglądarki \fBlynx\fP, wykorzystując metodę
+lynxcgi. Jeżeli pracuje jakiś demon http, do przeglądania można użyć lynxa,
+czy jakiejkolwiek innej przeglądarki, wykorzystując metodę http. Opcja \-l
+(oznaczająca "lynxcgi") wybiera pierwsze z opisanych zachowań. Przy jej
+zastosowaniu domyślną ścieżką cgi jest \fI/usr/lib\fP.
+
+Ogólnie skrypt cgi wywołuje się przez
+.IP
+<ścieżka_do_skryptu>/<dalej_ścieżka>?<zapytanie>
+.LP
+a zmiennym środowiska PATH_INFO i QUERY_STRING zostaną przypisane wartości,
+odpowiednio, <dalej_ścieżka> i <zapytanie>. Ponieważ lynxcgi
+nie obsługuje części PATH_INFO, domyślnie tworzone są odnośniki z "?" jako
+separatorem. Opcja \-p ("path" \- ścieżka) wybiera na separator znak ukośnika
+"/", a \-q ("query" \- zapytanie) \- znak zapytania "?".
+
+Opcja \-H \fIhost\fP określa nazwę hosta, który ma być używany (zamiast
+\fIlocalhost\fP). Skrypt cgi może wykorzystać konstrukcję
+.IP
+man2html \-H $SERVER_NAME
+.LP
+jeśli ustawiona jest zmienna SERVER_NAME. Dzięki temu maszyna może działać
+jako serwer i eksportować strony man.
+
+.SH BŁĘDY
+Wiele rzeczy jest zrobionych heurystycznie. Wynik nie zawsze będzie
+doskonały. Metoda lynxcgi nie zadziała, jeżeli lynx został skompilowany bez
+jej obsługi. Mogą być problemy z bezpieczeństwem.
+
+.SH AUTOR
+Richard Verhoeven był oryginalnym autorem programu \fBman2html\fP. Michael
+Hamilton i Andries Brouwer kolejno go ulepszali. Obecnym opiekunem programu
+jest Federico Lucifredi <flucifredi@acm.org>.
+
+.SH "ZOBACZ TAKŻE"
+\fBlynx\fP(1), \fBman\fP(1), \fBhman\fP(1)
+
+.SH TŁUMACZENIE
+Autorami polskiego tłumaczenia niniejszej strony podręcznika są:
+Wojtek Kotwica <wkotwica@post.pl>
+i
+Robert Luberda <robert@debian.org>
+.
+
+Niniejsze tłumaczenie jest wolną dokumentacją. Bliższe informacje o warunkach
+licencji można uzyskać zapoznając się z GNU General Public License w wersji 3
+lub nowszej. Nie przyjmuje się ŻADNEJ ODPOWIEDZIALNOŚCI.
+
+Błędy w tłumaczeniu strony podręcznika prosimy zgłaszać na adres
+<manpages-pl-list@lists.sourceforge.net>.

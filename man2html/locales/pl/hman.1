@@ -1,0 +1,67 @@
+.\" -*- coding: UTF-8 -*-
+.\" Copyright (c) 1998 Andries Brouwer
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.
+.\"*******************************************************************
+.\"
+.\" This file was generated with po4a. Translate the source file.
+.\"
+.\"*******************************************************************
+.TH hman 1 "19 stycznia 1998"
+.SH NAZWA
+hman \- przeglądanie stron podręcznika ekranowego
+.SH SKŁADNIA
+\fBhman\fP [ \-P \fIprzeglądarka\fP ] [ \-H \fIkomputer\fP ] [ \fIsekcja\fP ] \fInazwa\fP
+.br
+\fBhman\fP [ \-P \fIprzeglądarka\fP ] [ \-H \fIkomputer\fP ] [ \fIsekcja\fP ] [ indeks ]
+.SH OPIS
+Skrypt \fBhman\fP jest interfejsem do programu man2html(1), pozwalającym na
+wprowadzenie nazwy strony podręcznika ekranowego i zobaczenia jej w swojej
+ulubionej przeglądarce www.  Swoim zachowaniem przypomina polecenie
+\fBman\fP(1), więc można utworzyć alias z \fBhman\fP do \fBman\fP.  Jeżeli używaną
+przeglądarką jest netscape i netscape jest już uruchomiony, to \fBhman\fP użyje
+właśnie tej uruchomionej przeglądarki.
+
+.SH OPCJE
+.TP
+\fB\-\^P  przeglądarka\fP
+Specify which browser (like lynx, xmosaic, arena, chimera, netscape, amaya,
+\&...) to use.  This option overrides the \fBMANHTMLPAGER\fP environment
+variable.  The default is \fBsensible\-browser\fP.
+.br
+A special value \fIlynxcgi\fP can be used for the non\-httpd version of \fBlynx\fP,
+but this requires the \fBlynx\fP(1)  command to be installed and approprietly
+configured.
+.TP
+\fB\-\^H  komputer\fP
+Określa, z którego komputera należy wziąć strony podręcznika. Ta opcja
+unieważnia zmienną środowiskową \fBMANHTMLHOST\fP. Domyślną wartością jest
+\fBlocalhost\fP.
+
+.SH ŚRODOWISKO
+.TP
+MANHTMLPAGER
+Domyślna przeglądarka www jest wybierana na podstawie wartości tej zmiennej.
+.TP
+MANHTMLHOST
+Domyślna komputer jest wybierany na podstawie wartości tej zmiennej.
+
+.SH "ZOBACZ TAKŻE"
+\fBman\fP(1), \fBman2html\fP(1), \fBarena\fP(1), \fBlynx\fP(1), \fBsensible\-browser\fP(1),
+\fBnetscape\fP(1), \fBxmosaic\fP(1), \fBglimpse\fP(1)
+
+http://www.mcom.com/newsref/std/x\-remote.html
+
+.SH TŁUMACZENIE
+Autorami polskiego tłumaczenia niniejszej strony podręcznika są:
+Robert Luberda <robert@debian.org>
+.
+
+Niniejsze tłumaczenie jest wolną dokumentacją. Bliższe informacje o warunkach
+licencji można uzyskać zapoznając się z GNU General Public License w wersji 3
+lub nowszej. Nie przyjmuje się ŻADNEJ ODPOWIEDZIALNOŚCI.
+
+Błędy w tłumaczeniu strony podręcznika prosimy zgłaszać na adres
+<manpages-pl-list@lists.sourceforge.net>.

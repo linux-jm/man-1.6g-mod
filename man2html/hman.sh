@@ -22,13 +22,7 @@ if [ x"$1" = x"-v" ] || [ x"$1" = x"-V" ]; then
 	exit 0
 fi
 
-# The user has to set MANHTMLPAGER (or he will get httpd-free lynx).
-# Pick your favorite browser: lynx, xmosaic, netscape, arena, amaya, grail, ...
-if [ x"$MANHTMLPAGER" = x ]  && ! which lynx > /dev/null ; then
-	HMAN_BROWSER=sensible-browser
-else
-	HMAN_BROWSER=${MANHTMLPAGER-lynxcgi}
-fi
+HMAN_BROWSER=${MANHTMLPAGER:-sensible-browser}
 
 #
 # If the man pages are on a remote host, specify it in MANHTMLHOST.

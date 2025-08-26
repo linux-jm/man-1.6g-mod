@@ -8,6 +8,8 @@
 #include <ctype.h>		/* tolower() */
 #include <string.h>		/* strlen() */
 #include "defs.h"
+#include <errno.h>
+#include <limits.h>
 
 /*
  * The default is to use cgibase. With relative html style
@@ -83,11 +85,39 @@ void print_sig()
     char timebuf[TIMEBUFSZ];
     struct tm *timetm;
     time_t now;
+    char *source_date_epoch;
+    unsigned long long epoch;
+    char *endptr;
 
     timebuf[0] = 0;
 #ifdef TIMEFORMAT
     sprintf(timebuf, "Time: ");
+    source_date_epoch = getenv("SOURCE_DATE_EPOCH");
+    if (source_date_epoch) {
+		errno = 0;
+		epoch = strtoull(source_date_epoch, &endptr, 10);
+		if ((errno == ERANGE && (epoch == ULLONG_MAX || epoch == 0))
+				|| (errno != 0 && epoch == 0)) {
+			fprintf(stderr, "Environment variable $SOURCE_DATE_EPOCH: strtoull: %s\n", strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+		if (endptr == source_date_epoch) {
+			fprintf(stderr, "Environment variable $SOURCE_DATE_EPOCH: No digits were found: %s\n", endptr);
+			exit(EXIT_FAILURE);
+		}
+		if (*endptr != '\0') {
+			fprintf(stderr, "Environment variable $SOURCE_DATE_EPOCH: Trailing garbage: %s\n", endptr);
+			exit(EXIT_FAILURE);
+		}
+		if (epoch > ULONG_MAX) {
+			fprintf(stderr, "Environment variable $SOURCE_DATE_EPOCH: value must be smaller than or equal to: %lu but was found to be: %llu \n", ULONG_MAX  ,epoch);
+			exit(EXIT_FAILURE);
+		}
+		now=epoch;
+	}
+	else {
     now=time(NULL);
+	}
     timetm=gmtime(&now);
     strftime(timebuf+6, TIMEBUFSZ-6, TIMEFORMAT, timetm);
     timebuf[TIMEBUFSZ-1] = 0;
