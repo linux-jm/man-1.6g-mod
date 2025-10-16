@@ -1,0 +1,34 @@
+name: build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: build
+        run: |
+          ./configure -default
+          make
+
+      - name: tag
+        uses: EndBug/latest-tag@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: release
+        uses: ncipollo/release-action@v1
+        with:
+          name: "latest"
+          allowUpdates: true
+          tag: latest
+          commit: master
+          replacesArtifacts: true
+          prerelease: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: man2html/man2html
