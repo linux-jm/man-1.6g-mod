@@ -1425,6 +1425,7 @@ char *scan_expression(char *c, int *result) {
 	    if (opex) {
 		sign=1;
 		switch (oper) {
+		case 0: break; /* unknown-value proof */
 		case 'c': value=value2; break;
 		case '-': value=value-value2; break;
 		case '+': value=value+value2; break;
