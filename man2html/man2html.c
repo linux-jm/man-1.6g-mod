@@ -472,6 +472,7 @@ dl_end(void) {
 	  if (type == DL) {
 	       out_html(dl_close[type]);
 	       dl_set[itemdepth]=noDL;
+	       still_dd = 0; /* fail-safe: should not necessary */
 	  }
      }
 }
