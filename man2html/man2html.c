@@ -631,7 +631,7 @@ scan_escape(char *c) {
     case '0':
     case ' ': h="&nbsp;";curpos++; break;
     case '|': h=""; break;
-    case '"': SKIPEOL; c--; h=""; break;
+    case '"': SKIPEOL; c -= 2; h=""; break;
     case '$':
 	if (argument) {
 	    c++;
