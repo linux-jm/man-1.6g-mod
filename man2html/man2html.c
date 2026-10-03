@@ -1314,9 +1314,8 @@ scan_table(char *c) {
     return c;
 }
 
-char *scan_expression(char *c, int *result) {
-    int value=0,value2,sign=1,opex=0;
-    char oper='c';
+static char *scan_if_expression(char *c, int *result) {
+    int value=0;
 
     if (*c=='!') {
 	c=scan_expression(c+1, &value);
@@ -1360,6 +1359,16 @@ char *scan_expression(char *c, int *result) {
 	if (tcmp) c=c+3;
 	c++;
     } else {
+	return scan_expression(c, result);
+    }
+    *result=value;
+    return c;
+}
+
+char *scan_expression(char *c, int *result) {
+	int value=0,value2,sign=1,opex=0;
+	char oper='c';
+
 	while (*c && !isspace(*c) && *c!=')') {
 	    opex=0;
 	    switch (*c) {
@@ -1447,9 +1456,8 @@ char *scan_expression(char *c, int *result) {
 	    }
 	}
 	if (*c==')') c++;
-    }
-    *result=value;
-    return c;
+	*result=value;
+	return c;
 }
 
 static void
@@ -2007,7 +2015,7 @@ scan_request(char *c) {
 	     * .if !'string1'string2' anything
 	     */
 	    c=c+j;
-	    c=scan_expression(c, &i);
+	    c=scan_if_expression(c, &i);
 	    ifelseval=!i;
 	    if (i) {
 		*c='\n';
@@ -2452,6 +2460,16 @@ scan_request(char *c) {
             /* .nx filename : next file. */
 	case V('i','n'):
             /* .in +-N : Indent */
+	case V('n','h'):
+	    /* .nh : no hyphenation */
+	case V('h','y'):
+	    /* .hy : hyphenation */
+	case V('a','d'):
+	    /* .ad left|right|center|justify : adjust mode */
+	case V('n','a'):
+	    /* .na : no adjust */
+	case V('n','e'):
+	    /* .ne N : need at least N more lines */
 	    c=skip_till_newline(c);
 	    break;
 	case V('n','r'):
