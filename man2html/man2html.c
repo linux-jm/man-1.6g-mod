@@ -208,6 +208,9 @@ static int no_newline_output=0;		/* boolean, set by \c */
 static int newline_for_fun=0;
 static int output_possible=0;
 static int out_length=0;
+static int ur_link_active=0;
+static int ur_link_has_text=0;
+static char ur_link_url[1024];
 
 static void
 add_links(char *c)
@@ -399,6 +402,38 @@ int current_font=0;
 int current_size=0;
 int fillout = 1;
 
+static void
+flush_outbuffer(void)
+{
+	if (obp) {
+		outbuffer[obp] = 0;
+		if (ur_link_active)
+			printf("%s", outbuffer);
+		else
+			add_links(outbuffer);
+		obp = 0;
+	}
+}
+
+static void
+note_ur_link_text(const char *html)
+{
+	int in_tag=0;
+
+	if (!ur_link_active || ur_link_has_text)
+		return;
+	for (; *html; html++) {
+		if (*html == '<')
+			in_tag=1;
+		else if (*html == '>')
+			in_tag=0;
+		else if (!in_tag && !isspace((unsigned char)*html) && *html != '\a') {
+			ur_link_has_text=1;
+			return;
+		}
+	}
+}
+
 /*
  * Kludge: remove \a - in the context
  *   .TH NAME 2 date "Version" "Title"
@@ -408,6 +443,7 @@ static void
 out_html(char *c) {
 	if (!c)
 		return;
+	note_ur_link_text(c);
 	if (no_newline_output) {	/* remove \n if present */
 		int i=0;
 		while (c[i]) {
@@ -435,12 +471,80 @@ out_html(char *c) {
 			if (*c != '\a')
 				outbuffer[obp++] = *c;
 			if (*c == '\n' || obp > 1000) {
-				outbuffer[obp] = 0;
-				add_links(outbuffer);
-				obp = 0;
+				flush_outbuffer();
 			}
 			c++;
 		}
+	}
+}
+
+static void
+output_raw_html(const char *html)
+{
+	if (scaninbuff) {
+		char *copy = xmalloc(strlen(html) + 1);
+		strcpy(copy, html);
+		out_html(copy);
+		free(copy);
+	} else if (output_possible) {
+		flush_outbuffer();
+		printf("%s", html);
+	}
+}
+
+static void
+open_ur_link(void)
+{
+	const char *p;
+
+	ur_link_has_text = 0;
+	output_raw_html("<A HREF=\"");
+	for (p = ur_link_url; *p; p++) {
+		switch (*p) {
+		case '&': output_raw_html("&amp;"); break;
+		case '"': output_raw_html("&quot;"); break;
+		case '<': output_raw_html("&lt;"); break;
+		case '>': output_raw_html("&gt;"); break;
+		default: {
+			char character[2];
+			character[0] = *p;
+			character[1] = 0;
+			output_raw_html(character);
+		}
+		}
+	}
+	output_raw_html("\">");
+	ur_link_active = 1;
+}
+
+static void
+output_ur_link_text(void)
+{
+	const char *p;
+
+	for (p = ur_link_url; *p; p++) {
+		switch (*p) {
+		case '&': out_html("&amp;"); break;
+		case '<': out_html("&lt;"); break;
+		case '>': out_html("&gt;"); break;
+		default: {
+			char character[2];
+			character[0] = *p;
+			character[1] = 0;
+			out_html(character);
+		}
+		}
+	}
+}
+
+static void
+close_ur_link(void)
+{
+	if (ur_link_active) {
+		if (!ur_link_has_text)
+			output_ur_link_text();
+		output_raw_html("</A>");
+		ur_link_active = 0;
 	}
 }
 
@@ -1810,6 +1914,33 @@ scan_request(char *c) {
 		owndef->st[deflen+1]=0;
 		*sl='\n';
 	} else switch (i) {
+	case V('U','R'):
+	    c=c+j;
+	    if (*c == 'L') { c++;break; }
+	    sl=fill_words(c, wordlist, SIZE(wordlist), &words, '\n');
+	    if (words > 0) {
+		if (ur_link_active)
+		    close_ur_link();
+		h=wordlist[0];
+		for (i=0; *h && *h != '\n' && i<(int)sizeof(ur_link_url)-1; h++) {
+		    if (*h == escapesym && (h[1] == ':' || h[1] == '-')) {
+			    if (h[1] == '-') ur_link_url[i++]='-';
+			    h++;
+			    continue;
+		    }
+		    if (*h != '\a') ur_link_url[i++]=*h;
+		}
+		ur_link_url[i]=0;
+		if (ur_link_url[0]) open_ur_link();
+	    }
+	    c=(*sl == '\n') ? sl+1 : sl;
+	    break;
+	case V('U','E'):
+	    if (ur_link_active) close_ur_link();
+	    c=c+j;
+	    if (*c && *c != '\n') c=scan_troff(c, 1, NULL);
+	    if (*c == '\n') c++;
+	    break;
 	case V('a','b'):
 	    h=c+j;
 	    while (*h && *h !='\n') h++;
@@ -3457,6 +3588,7 @@ main(int argc, char **argv) {
     stdinit();
 
     scan_troff(buf+1,0,NULL);
+	 close_ur_link();
     dl_down();
     out_html(change_to_font(0));
     out_html(change_to_size(0));
