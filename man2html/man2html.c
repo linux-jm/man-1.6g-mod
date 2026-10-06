@@ -2601,6 +2601,8 @@ scan_request(char *c) {
 	    /* .na : no adjust */
 	case V('n','e'):
 	    /* .ne N : need at least N more lines */
+	case V('U','C'):
+	    /* .UC N : BSD version N */
 	    c=skip_till_newline(c);
 	    break;
 	case V('n','r'):
