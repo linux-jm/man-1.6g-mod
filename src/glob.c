@@ -111,7 +111,7 @@ extern char *alloca ();
 /* Nonzero if '*' and '?' do not match an initial '.' for glob_filename.  */
 int noglob_dot_filenames = 1;
 
-static int glob_match_after_star ();
+static int glob_match_after_star (char *, char *);
 
 /* Return nonzero if PATTERN has any special globbing chars in it.  */
 
