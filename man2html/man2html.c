@@ -2365,6 +2365,7 @@ scan_request(char *c) {
 	    curpos = 0;
 	    break;
 	case V('T','P'):
+	case V('T','Q'):
 	    dl_begin();
 	    c=skip_till_newline(c);
 	    c=skip_blank_lines(c);
