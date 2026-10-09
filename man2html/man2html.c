@@ -2592,16 +2592,22 @@ scan_request(char *c) {
 	    /* .UC N : BSD version N */
 	case V('a','d'):
 	    /* .ad left|right|center|justify : adjust mode */
+	case V('h','l'):
+	    /* .hla : language */
 	case V('h','y'):
 	    /* .hy : hyphenation */
 	case V('i','n'):
             /* .in +-N : Indent */
+	case V('m','s'):
+            /* .mso : macro .so */
 	case V('n','a'):
 	    /* .na : no adjust */
 	case V('n','e'):
 	    /* .ne N : need at least N more lines */
 	case V('n','h'):
 	    /* .nh : no hyphenation */
+	case V('n','s'):
+	    /* .ns : no space */
 	case V('n','x'):
             /* .nx filename : next file. */
 	    c=skip_till_newline(c);
