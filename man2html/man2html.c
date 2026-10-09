@@ -2588,22 +2588,22 @@ scan_request(char *c) {
 		if (de) de->nr=j;
 		break;
 	    }
-	case V('n','x'):
-            /* .nx filename : next file. */
-	case V('i','n'):
-            /* .in +-N : Indent */
-	case V('n','h'):
-	    /* .nh : no hyphenation */
-	case V('h','y'):
-	    /* .hy : hyphenation */
+	case V('U','C'):
+	    /* .UC N : BSD version N */
 	case V('a','d'):
 	    /* .ad left|right|center|justify : adjust mode */
+	case V('h','y'):
+	    /* .hy : hyphenation */
+	case V('i','n'):
+            /* .in +-N : Indent */
 	case V('n','a'):
 	    /* .na : no adjust */
 	case V('n','e'):
 	    /* .ne N : need at least N more lines */
-	case V('U','C'):
-	    /* .UC N : BSD version N */
+	case V('n','h'):
+	    /* .nh : no hyphenation */
+	case V('n','x'):
+            /* .nx filename : next file. */
 	    c=skip_till_newline(c);
 	    break;
 	case V('n','r'):
