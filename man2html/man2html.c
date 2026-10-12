@@ -56,6 +56,28 @@ static char *scan_troff_mandoc(char *c, int san, char **result);
 
 static char **argument=NULL;
 
+typedef struct NAMEDSTRDEF NAMEDSTRDEF;
+struct NAMEDSTRDEF {
+	char *name;
+	int slen;
+	char *st;
+	NAMEDSTRDEF *next;
+};
+
+static NAMEDSTRDEF *namedstrdef=NULL;
+
+static NAMEDSTRDEF *
+find_namedstrdef(const char *name, size_t namelen)
+{
+	NAMEDSTRDEF *de;
+
+	for (de=namedstrdef; de; de=de->next)
+		if (strlen(de->name) == namelen &&
+		    !strncmp(de->name, name, namelen))
+			return de;
+	return NULL;
+}
+
 static char charb[3];
 
 #ifdef GUNZIP
@@ -754,7 +776,7 @@ scan_escape(char *c) {
 						  h,
 						  quote ? "\"" : "");
 		};
-		h = tmp + 1;
+		h = tmp + (len ? 1 : 0);
 	    } else {
 	    	i=(*c -'1');
 	    	if (!(h=argument[i])) h="";
@@ -792,17 +814,34 @@ scan_escape(char *c) {
 	h = expand_char(i);
 	break;
     case '*':
+	{
+	int named=0;
 	c++;
 	if (*c=='(') {
 	    c++;
 	    i= c[0]*256+c[1];
 	    c++;
 	} else if (*c == '[') {
+		char *name = c+1;
+		char *end = strchr(name, ']');
+		if (end && end-name > 2) {
+		    NAMEDSTRDEF *de = find_namedstrdef(name, end-name);
+		    c = end;
+		    named=1;
+		    if (de) {
+			h = de->st;
+			curpos += de->slen;
+		    } else
+			h = NULL;
+		} else {
 	    EXPAND_BRACKET;
+		}
 	} else 
 	    i= *c *256+' ';
+	if (!named)
 	h = expand_string(i);
 	break;
+	}
     case 'f':
 	c++;	
 	if (*c=='\\') {
@@ -1913,6 +1952,26 @@ scan_request(char *c) {
 		for (i=0; i<words; i++) if (wordlist[i]) free(wordlist[i]);
 		owndef->st[deflen+1]=0;
 		*sl='\n';
+	} else if (strncmp(c, "shift", 5) == 0 &&
+		   (c[5] == ' ' || c[5] == '\t' || c[5] == '\n' || c[5] == '\0')) {
+		char *count = c+5;
+		char *end;
+		long shift = 1;
+
+		while (*count == ' ' || *count == '\t')
+		    count++;
+		if (*count && *count != '\n') {
+		    shift = strtol(count, &end, 10);
+		    while (*end == ' ' || *end == '\t')
+			end++;
+		    if (end == count || (*end && *end != '\n') || shift <= 0)
+			shift = 0;
+		}
+		while (argument && shift > 0 && *argument) {
+		    argument++;
+		    shift--;
+		}
+		c=skip_till_newline(c);
 	} else switch (i) {
 	case V('U','R'):
 	    c=c+j;
@@ -1987,9 +2046,48 @@ scan_request(char *c) {
 	case V('a','s'):
 	    {
 		STRDEF *de;
+			NAMEDSTRDEF *named;
+			char *name;
+			size_t namelen;
 		int oldcurpos=curpos;
 		c=c+j;
-		while (*c == ' ') c++;
+			while (*c == ' ' || *c == '\t') c++;
+			name=c;
+			while (*c && !isspace(*c)) c++;
+			namelen=c-name;
+			if (namelen > 2) {
+			    named=find_namedstrdef(name, namelen);
+			    while (*c == ' ' || *c == '\t') c++;
+			    if (*c == '\n') { c++; break; }
+			    if (*c == '"') c++;
+			    if (!named) {
+				char *copy=(char*) xmalloc(namelen+1);
+				memcpy(copy, name, namelen);
+				copy[namelen]=0;
+				named=(NAMEDSTRDEF*) xmalloc(sizeof(NAMEDSTRDEF));
+				named->name=copy;
+				named->slen=0;
+				named->st=NULL;
+				named->next=namedstrdef;
+				namedstrdef=named;
+			    }
+			    single_escape=1;
+			    curpos=0;
+			    if (mode) {
+				char *hl=NULL;
+				c=scan_troff(c, 1, &hl);
+				if (named->st) free(named->st);
+				named->st=hl;
+				named->slen=curpos;
+			    } else {
+				c=scan_troff(c, 1, &named->st);
+				named->slen+=curpos;
+			    }
+			    single_escape=0;
+			    curpos=oldcurpos;
+			    break;
+			}
+			c=name;
 		i=V(c[0],c[1]);
 		j=0;
 		while (c[j] && c[j]!='\n') j++;
@@ -2570,7 +2668,37 @@ scan_request(char *c) {
             /* .rn xx yy : Rename request, macro or string xx to yy */
 	    {
 		STRDEF *de;
+		NAMEDSTRDEF *named, *previous;
+		char *name;
+		size_t namelen;
+		int request=i;
 		c=c+j;
+		while (*c == ' ' || *c == '\t') c++;
+		name=c;
+		while (*c && !isspace(*c)) c++;
+		namelen=c-name;
+		if (request == V('r','m') && namelen > 2) {
+		    previous=NULL;
+		    named=namedstrdef;
+		    while (named &&
+			   (strlen(named->name) != namelen ||
+			    strncmp(named->name, name, namelen))) {
+			previous=named;
+			named=named->next;
+		    }
+		    if (named) {
+			if (previous)
+			    previous->next=named->next;
+			else
+			    namedstrdef=named->next;
+			free(named->name);
+			if (named->st) free(named->st);
+			free(named);
+		    }
+		    c=skip_till_newline(c);
+		    break;
+		}
+		c=name;
 		i=V(c[0],c[1]);
 		c=c+2;
 		while (isspace(*c) && *c!='\n') c++;
