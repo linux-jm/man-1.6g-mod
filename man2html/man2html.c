@@ -1915,7 +1915,11 @@ scan_request(char *c) {
         else
             c = scan_escape(c+1);
     } else {
-        i=V(c[0],c[1]);
+        {
+            int c1 = c[1];
+            if (c1 < ' ') c1 = ' ';
+            i=V(c[0],c1);
+	}
         /* search macro database of self-defined macros */
         owndef = find_longstrdef(defdef, i, c, NULL);
         if (owndef) {
@@ -2377,9 +2381,7 @@ scan_request(char *c) {
             *c='\n';
             break;
         case V('B',' '):
-        case V('B','\n'):
         case V('I',' '):
-        case V('I','\n'):
             /* parse one line in a certain font */
             out_html(change_to_font(*c));
             trans_char(c, '"', '\a');
@@ -2482,7 +2484,6 @@ scan_request(char *c) {
             out_html("\"></A>");
             break;
         case V('P',' '):
-        case V('P','\n'):
         case V('L','P'):
         case V('P','P'):
             dl_end();
