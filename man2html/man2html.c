@@ -1922,6 +1922,12 @@ scan_request(char *c) {
 	}
         /* search macro database of self-defined macros */
         owndef = find_longstrdef(defdef, i, c, NULL);
+        if (!owndef && c[1] == '"') {
+            char name[2];
+            name[0] = c[0];
+            name[1] = 0;
+            owndef = find_longstrdef(defdef, V(c[0], ' '), name, NULL);
+        }
         if (owndef) {
                 char **oldargument;
                 int deflen;
@@ -2761,8 +2767,14 @@ scan_request(char *c) {
                 char *longname;
                 int olen=0;
                 c=c+j;
+                while (*c == ' ' || *c == '\t') c++;
                 sl=fill_words(c, wordlist, SIZE(wordlist), &words, '\n');
-                i=V(c[0],c[1]);j=2;
+                {
+                    int c1 = c[1];
+                    if (c1 < ' ') c1 = ' ';
+                    i=V(c[0],c1);
+                }
+                j=2;
                 longname = c;
                 if (words == 1) wordlist[1]=".."; else {
                     wordlist[1]--;
