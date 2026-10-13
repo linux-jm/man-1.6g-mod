@@ -1952,26 +1952,6 @@ scan_request(char *c) {
 		for (i=0; i<words; i++) if (wordlist[i]) free(wordlist[i]);
 		owndef->st[deflen+1]=0;
 		*sl='\n';
-	} else if (strncmp(c, "shift", 5) == 0 &&
-		   (c[5] == ' ' || c[5] == '\t' || c[5] == '\n' || c[5] == '\0')) {
-		char *count = c+5;
-		char *end;
-		long shift = 1;
-
-		while (*count == ' ' || *count == '\t')
-		    count++;
-		if (*count && *count != '\n') {
-		    shift = strtol(count, &end, 10);
-		    while (*end == ' ' || *end == '\t')
-			end++;
-		    if (end == count || (*end && *end != '\n') || shift <= 0)
-			shift = 0;
-		}
-		while (argument && shift > 0 && *argument) {
-		    argument++;
-		    shift--;
-		}
-		c=skip_till_newline(c);
 	} else switch (i) {
 	case V('U','R'):
 	    c=c+j;
@@ -3298,7 +3278,31 @@ scan_request(char *c) {
 	     break;
         /* ----- end of BSD mandoc stuff ----- */
 
- 	default:
+	case V('s','h'):
+	    if (strncmp(c, "shift", 5) == 0 &&
+		(c[5] == ' ' || c[5] == '\t' || c[5] == '\n' || c[5] == '\0')) {
+		char *count = c+5;
+		char *end;
+		long shift = 1;
+
+		while (*count == ' ' || *count == '\t')
+		    count++;
+		if (*count && *count != '\n') {
+		    shift = strtol(count, &end, 10);
+		    while (*end == ' ' || *end == '\t')
+			end++;
+		    if (end == count || (*end && *end != '\n') || shift <= 0)
+			shift = 0;
+		}
+		while (argument && shift > 0 && *argument) {
+		    argument++;
+		    shift--;
+		}
+		c=skip_till_newline(c);
+		break;
+	    }
+	    /* fall through */
+  default:
 	    if (mandoc_command &&
 		       ((isupper(*c) && islower(c[1]))
 			|| (islower(*c) && isupper(c[1])))) {
@@ -3320,7 +3324,15 @@ scan_request(char *c) {
                out_html(NEWLINE);
                if (fillout) curpos++; else curpos=0;
 	    } else
+	    {
+		char buf[256];
+		char *ppb = buf;
+		char *ppp = c;
+		while(*ppp != '\n') *ppb++ = *ppp++;
+		*ppb = 0;
+		fprintf(stderr, "%s:Undefined Request: .%s:\n", fname, buf);
 		c=skip_till_newline(c);
+	    }
 	    break;
 	}
     }
