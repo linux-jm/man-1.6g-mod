@@ -53,6 +53,7 @@ int curpos=0;
 
 static char *scan_troff(char *c, int san, char **result);
 static char *scan_troff_mandoc(char *c, int san, char **result);
+static char *expand_char(int nr);
 
 static char **argument=NULL;
 
@@ -65,6 +66,88 @@ struct NAMEDSTRDEF {
 };
 
 static NAMEDSTRDEF *namedstrdef=NULL;
+
+/* for .tr */
+
+typedef struct TROFFTRAN TROFFTRAN;
+struct TROFFTRAN {
+    int from;
+    int to;
+    TROFFTRAN *next;
+};
+
+static TROFFTRAN *trofftran=NULL;
+
+static int
+find_trofftran(int from, int *to)
+{
+    TROFFTRAN *tr;
+
+    for (tr=trofftran; tr; tr=tr->next)
+        if (tr->from == from) {
+            *to = tr->to;
+            return 1;
+        }
+    return 0;
+}
+
+static void
+set_trofftran(int from, int to)
+{
+    TROFFTRAN *tr;
+
+    for (tr=trofftran; tr; tr=tr->next)
+        if (tr->from == from) {
+            tr->to = to;
+            return;
+        }
+    tr = (TROFFTRAN *) xmalloc(sizeof(TROFFTRAN));
+    tr->from = from;
+    tr->to = to;
+    tr->next = trofftran;
+    trofftran = tr;
+}
+
+static int
+read_troffchar(char **text)
+{
+    char *c = *text;
+    int nr;
+
+    if (*c == escapesym && c[1] && c[1] != '\n') {
+        c++;
+        if (*c == '(' && c[1] && c[1] != '\n' &&
+            c[2] && c[2] != '\n') {
+            nr = V(c[1], c[2]);
+            c += 3;
+        } else
+            nr = (unsigned char)*c++;
+    } else
+        nr = (unsigned char)*c++;
+    *text = c;
+    return nr;
+}
+
+static char *
+expand_troffchar(int nr)
+{
+    static char singlechar[2];
+
+    if (nr > 255)
+        return expand_char(nr);
+    curpos++;
+    switch (nr) {
+    case '&': return "&amp;";
+    case '<': return "&lt;";
+    case '>': return "&gt;";
+    default:
+        singlechar[0] = nr;
+        singlechar[1] = 0;
+        return singlechar;
+    }
+}
+
+/* */
 
 static NAMEDSTRDEF *
 find_namedstrdef(const char *name, size_t namelen)
@@ -807,7 +890,10 @@ scan_escape(char *c) {
         c++;
         i= c[0]*256+c[1];
         c++;
-        h = expand_char(i);
+        if (!find_trofftran(i, &j))
+            h = expand_char(i);
+        else
+            h = expand_troffchar(j);
         break;
     case '[':
         EXPAND_BRACKET;
@@ -2755,6 +2841,19 @@ scan_request(char *c) {
                 c=skip_till_newline(c);
                 break;
             }
+        case V('t','r'):
+            c=c+j;
+            while (*c == ' ' || *c == '\t') c++;
+            while (*c && *c != '\n') {
+                int from = read_troffchar(&c);
+                int to;
+
+                if (!*c || *c == '\n') break;
+                to = read_troffchar(&c);
+                set_trofftran(from, to);
+            }
+            c=skip_till_newline(c);
+            break;
         case V('a','m'):
             /* .am xx yy : append to a macro. */
             /* define or handle as .ig yy */
@@ -3403,6 +3502,14 @@ scan_troff(char *c, int san, char **result) {   /* san : stop at newline */
             h = scan_request(h);
             if (san && h[-1] == '\n') h--;
         } else {
+            int translated;
+
+            if (*h != '\n' && find_trofftran((unsigned char)*h, &translated)) {
+                FLUSHIBP;
+                out_html(expand_troffchar(translated));
+                h++;
+                continue;
+            }
             if (h[-1] == '\n' && still_dd && isalnum(*h)) {
                 /* sometimes a .HP request is not followed by a .br request */
                 FLUSHIBP;
