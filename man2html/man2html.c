@@ -3029,6 +3029,7 @@ scan_request(char *c) {
              c=scan_troff_mandoc(c, 1, NULL);
              if (fillout) curpos++; else curpos=0;
              break;
+        case V('D','1'):        /* BSD mandoc */
         case V('D','l'):        /* BSD mandoc */
              c=c+j;
              out_html(NEWLINE);
