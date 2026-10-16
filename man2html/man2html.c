@@ -2793,6 +2793,8 @@ scan_request(char *c) {
             /* .UC N : BSD version N */
         case V('a','d'):
             /* .ad left|right|center|justify : adjust mode */
+        case V('f','l'):
+            /* .fl : flush */
         case V('h','l'):
             /* .hla : language */
         case V('h','y'):
@@ -2811,6 +2813,8 @@ scan_request(char *c) {
             /* .ns : no space */
         case V('n','x'):
             /* .nx filename : next file. */
+        case V('p','l'):
+            /* .pl n : page length */
             c=skip_till_newline(c);
             break;
         case V('n','r'):
