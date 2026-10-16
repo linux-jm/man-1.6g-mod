@@ -2273,6 +2273,7 @@ scan_request(char *c) {
             c=skip_till_newline(c);
             break;
         case V('f','i'):
+        case V('F','I'):
         case V('E','E'):
             if (!fillout) {
                 out_html(change_to_font(0));
@@ -2349,6 +2350,7 @@ scan_request(char *c) {
                 break;
             }
         case V('n','f'):
+        case V('N','F'):
         case V('E','X'):
             if (fillout) {
                 out_html(change_to_font(0));
