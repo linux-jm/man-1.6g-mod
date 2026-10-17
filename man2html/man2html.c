@@ -1999,6 +1999,7 @@ scan_request(char *c) {
     int words;
     char *sl;
     LONGSTRDEF *owndef;
+    int unknown = 0;
 
     while (*c == ' ' || *c == '\t')
             c++;
@@ -3429,7 +3430,8 @@ scan_request(char *c) {
                 c=skip_till_newline(c);
                 break;
             }
-            /* fall through */
+            unknown = 1;
+            break;
   default:
             if (mandoc_command &&
                        ((isupper(*c) && islower(c[1]))
@@ -3453,11 +3455,14 @@ scan_request(char *c) {
                if (fillout) curpos++; else curpos=0;
             } else
             {
-                warn_unknown_request(c);
-                c=skip_till_newline(c);
+                unknown = 1;
             }
             break;
         }
+    }
+    if (unknown) {
+        warn_unknown_request(c);
+        c=skip_till_newline(c);
     }
     if (fillout) { out_html(NEWLINE); curpos++; }
     NEWLINE[0]='\n';
