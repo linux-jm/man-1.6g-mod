@@ -1974,6 +1974,17 @@ V2(int c0, int c1) {
     return V(c0, c1);
 }
 
+static void
+warn_unknown_request(char *c) {
+    char buf[256];
+    char *ppb = buf;
+    char *ppp = c;
+
+    while(*ppp && *ppp != '\n') *ppb++ = *ppp++;
+    *ppb = 0;
+    fprintf(stderr, "%s:Unknown Request: .%s:\n", fname, buf);
+}
+
 static char *
 scan_request(char *c) {
                                   /* BSD Mandoc stuff - by Michael Hamilton */
@@ -3441,7 +3452,10 @@ scan_request(char *c) {
                out_html(NEWLINE);
                if (fillout) curpos++; else curpos=0;
             } else
+            {
+                warn_unknown_request(c);
                 c=skip_till_newline(c);
+            }
             break;
         }
     }
