@@ -1968,6 +1968,12 @@ skip_blank_lines(char *c)
 
 int ifelseval=0;
 
+static int
+V2(int c0, int c1) {
+    if (c1 < ' ') c1 = ' ';
+    return V(c0, c1);
+}
+
 static char *
 scan_request(char *c) {
                                   /* BSD Mandoc stuff - by Michael Hamilton */
@@ -2001,11 +2007,7 @@ scan_request(char *c) {
         else
             c = scan_escape(c+1);
     } else {
-        {
-            int c1 = c[1];
-            if (c1 < ' ') c1 = ' ';
-            i=V(c[0],c1);
-	}
+        i = V2(c[0], c[1]);
         /* search macro database of self-defined macros */
         owndef = find_longstrdef(defdef, i, c, NULL);
         if (!owndef && c[1] == '"') {
@@ -2874,11 +2876,7 @@ scan_request(char *c) {
                 c=c+j;
                 while (*c == ' ' || *c == '\t') c++;
                 sl=fill_words(c, wordlist, SIZE(wordlist), &words, '\n');
-                {
-                    int c1 = c[1];
-                    if (c1 < ' ') c1 = ' ';
-                    i=V(c[0],c1);
-                }
+                i = V2(c[0], c[1]);
                 j=2;
                 longname = c;
                 if (words == 1) wordlist[1]=".."; else {
