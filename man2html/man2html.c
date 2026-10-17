@@ -504,6 +504,7 @@ add_links(char *c)
 }
 
 int current_font=0;
+int current_family='T';
 int current_size=0;
 int fillout = 1;
 
@@ -832,6 +833,7 @@ scan_escape(char *c) {
     char b[10];
     INTDEF *intd;
     int exoutputp,exskipescape;
+    int family_text;
     int i,j;
 
     intresult=0;
@@ -1051,7 +1053,12 @@ scan_escape(char *c) {
     default: b[0]=*c; b[1]=0; h=b; curpos++; break;
     }
     c++;
-    if (!skip_escape) out_html(h);
+    if (!skip_escape) {
+        family_text = current_family == 'C' && current_font == 0 && h && *h && *h != '<';
+        if (family_text) out_html("<TT>");
+        out_html(h);
+        if (family_text) out_html("</TT>");
+    }
     if (tmp) free(tmp);
     return c;
 }
@@ -2286,6 +2293,14 @@ scan_request(char *c) {
             }
             c=skip_till_newline(c);
             break;
+        case V('f','a'):
+            c=c+j+1;
+            while (*c == ' ' || *c == '\t') c++;
+            if (*c == 'C' || *c == 'T') {
+                current_family=*c;
+            }
+            c=skip_till_newline(c);
+            break;
         case V('f','i'):
         case V('F','I'):
         case V('E','E'):
@@ -3477,7 +3492,7 @@ scan_troff(char *c, int san, char **result) {   /* san : stop at newline */
     char *h;
     char intbuff[500];
     int ibp=0;
-#define FLUSHIBP  if (ibp) { intbuff[ibp]=0; out_html(intbuff); ibp=0; }
+#define FLUSHIBP  if (ibp) { intbuff[ibp]=0; if (current_family == 'C' && current_font == 0) out_html("<TT>"); out_html(intbuff); if (current_family == 'C' && current_font == 0) out_html("</TT>"); ibp=0; }
     char *exbuffer;
     int exbuffpos, exbuffmax, exscaninbuff, exnewline_for_fun;
     int usenbsp = 0;
@@ -3575,9 +3590,8 @@ scan_troff(char *c, int san, char **result) {   /* san : stop at newline */
                 break;
             case '\n':
                 if (h[-1] == '\n' && fillout) {
-                    intbuff[ibp++]='<';
-                    intbuff[ibp++]='P';
-                    intbuff[ibp++]='>';
+                    FLUSHIBP;
+                    out_html("<P>");
                 }
                 if (contained_tab && fillout) {
                     intbuff[ibp++]='<';
