@@ -132,6 +132,7 @@ static char *
 expand_troffchar(int nr)
 {
     static char singlechar[2];
+    static char utf8char[3];
 
     if (nr > 255)
         return expand_char(nr);
@@ -141,9 +142,15 @@ expand_troffchar(int nr)
     case '<': return "&lt;";
     case '>': return "&gt;";
     default:
-        singlechar[0] = nr;
-        singlechar[1] = 0;
-        return singlechar;
+        if (nr < 0x80) {
+            singlechar[0] = nr;
+            singlechar[1] = 0;
+            return singlechar;
+        }
+        utf8char[0] = 0xc0 | (nr >> 6);
+        utf8char[1] = 0x80 | (nr & 0x3f);
+        utf8char[2] = 0;
+        return utf8char;
     }
 }
 
@@ -898,8 +905,29 @@ scan_escape(char *c) {
             h = expand_troffchar(j);
         break;
     case '[':
-        EXPAND_BRACKET;
-        h = expand_char(i);
+        {
+            char *p = c + 1;
+            int nr = 0;
+
+            if (!strncmp(p, "char", 4) && isdigit(p[4])) {
+                p += 4;
+                while (isdigit(*p)) {
+                    int digit = *p++ - '0';
+                    if (nr > (1114111 - digit) / 10) {
+                        nr = -1;
+                        break;
+                    }
+                    nr = nr * 10 + digit;
+                }
+                if (nr >= 0 && *p == ']') {
+                    c = p;
+                    h = expand_troffchar(nr);
+                    break;
+                }
+            }
+            EXPAND_BRACKET;
+            h = expand_char(i);
+        }
         break;
     case '*':
         {
@@ -2070,6 +2098,46 @@ scan_request(char *c) {
                 owndef->st[deflen+1]=0;
                 *sl='\n';
         } else switch (i) {
+        case V('C','D'):
+            {
+                char *arg = c+j;
+                char *number_end;
+                char *glyph;
+                char *line_end;
+                char *expanded;
+                long code;
+                size_t len;
+                int has_newline;
+
+                while (*arg == ' ' || *arg == '\t') arg++;
+                code = strtol(arg, &number_end, 10);
+                if (number_end == arg || code < 0 || code > 1114111 ||
+                    (*number_end != ' ' && *number_end != '\t')) {
+                    unknown = 1;
+                    break;
+                }
+                glyph = number_end;
+                while (*glyph == ' ' || *glyph == '\t') glyph++;
+                if (!*glyph || *glyph == '\n') {
+                    unknown = 1;
+                    break;
+                }
+                line_end = glyph;
+                while (*line_end && *line_end != '\n') line_end++;
+                has_newline = *line_end == '\n';
+                len = strlen(glyph) + 100;
+                expanded = (char *) xmalloc(len * sizeof(char));
+                *line_end = 0;
+                expanded[0] = '\n';
+                sprintf(expanded + 1, ".C \\[char%ld] %ld \\[char%ld] %s\n",
+                        code, code, code, glyph);
+                scan_troff(expanded + 1, 0, NULL);
+                free(expanded);
+                *line_end = has_newline ? '\n' : 0;
+                if (has_newline) line_end++;
+                c = line_end;
+            }
+            break;
         case V('U','R'):
             c=c+j;
             if (*c == 'L') { c++;break; }
