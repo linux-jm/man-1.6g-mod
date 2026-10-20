@@ -2020,6 +2020,13 @@ warn_unknown_request(char *c) {
     fprintf(stderr, "%s:Unknown Request: .%s:\n", fname, buf);
 }
 
+static LONGSTRDEF *
+resolve_macro_alias(LONGSTRDEF *macro) {
+    while (macro && macro->alias)
+        macro = macro->alias;
+    return macro;
+}
+
 static char *
 scan_request(char *c) {
                                   /* BSD Mandoc stuff - by Michael Hamilton */
@@ -2033,6 +2040,7 @@ scan_request(char *c) {
     char *wordlist[30];
     int words;
     char *sl;
+    char *request_name_end;
     LONGSTRDEF *owndef;
     int unknown = 0;
 
@@ -2055,6 +2063,9 @@ scan_request(char *c) {
             c = scan_escape(c+1);
     } else {
         i = V2(c[0], c[1]);
+        request_name_end = c;
+        while (*request_name_end && !isspace((unsigned char)*request_name_end))
+            request_name_end++;
         /* search macro database of self-defined macros */
         owndef = find_longstrdef(defdef, i, c, NULL);
         if (!owndef && c[1] == '"') {
@@ -2063,11 +2074,12 @@ scan_request(char *c) {
             name[1] = 0;
             owndef = find_longstrdef(defdef, V(c[0], ' '), name, NULL);
         }
+        owndef = resolve_macro_alias(owndef);
         if (owndef) {
                 char **oldargument;
                 int deflen;
                 int onff;
-                sl=fill_words(c+strlen(owndef->longname), wordlist, SIZE(wordlist), &words, '\n');
+                sl=fill_words(request_name_end, wordlist, SIZE(wordlist), &words, '\n');
                 c=sl+1;
                 *sl=0;
                 for (i=1; i<words; i++)
@@ -2957,6 +2969,43 @@ scan_request(char *c) {
             }
             c=skip_till_newline(c);
             break;
+        case V('a','l'):
+            if (c[2] != 's' || (c[3] != ' ' && c[3] != '\t' && c[3] != '\n')) {
+                unknown = 1;
+                break;
+            }
+            c += 3;
+            while (*c == ' ' || *c == '\t') c++;
+            sl=fill_words(c, wordlist, SIZE(wordlist), &words, '\0');
+            if (words >= 2) {
+                char *aliasname = wordlist[0];
+                char *targetname = wordlist[1];
+                int aliasnr = V(aliasname[0], aliasname[1] ? aliasname[1] : ' ');
+                int targetnr = V(targetname[0], targetname[1] ? targetname[1] : ' ');
+                LONGSTRDEF *aliasdef;
+                LONGSTRDEF *targetdef;
+
+                aliasdef = find_longstrdef(defdef, aliasnr, aliasname, NULL);
+                targetdef = find_longstrdef(defdef, targetnr, targetname, NULL);
+                targetdef = resolve_macro_alias(targetdef);
+                if (targetdef && aliasdef != targetdef) {
+                    if (!aliasdef) {
+                        aliasdef = (LONGSTRDEF*) xmalloc(sizeof(LONGSTRDEF));
+                        if (aliasdef) {
+                            aliasdef->nr = aliasnr;
+                            aliasdef->slen = 0;
+                            aliasdef->longname = xstrdup(aliasname);
+                            aliasdef->st = NULL;
+                            aliasdef->next = defdef;
+                            defdef = aliasdef;
+                        }
+                    }
+                    if (aliasdef)
+                        aliasdef->alias = targetdef;
+                }
+            }
+            c=skip_till_newline(sl);
+            break;
         case V('a','m'):
             /* .am xx yy : append to a macro. */
             /* define or handle as .ig yy */
@@ -2983,7 +3032,8 @@ scan_request(char *c) {
                 *sl=0;
                 sl=c;
                 while (*c && strncmp(c,wordlist[1],j)) c=skip_till_newline(c);
-                de = find_longstrdef(defdef, i, longname, &longname); 
+                de = find_longstrdef(defdef, i, longname, &longname);
+                de = resolve_macro_alias(de);
                 if (mode && de) olen=strlen(de->st);
                 j=olen+c-sl;
                 h= (char*) xmalloc((j*2+5)*sizeof(char));
@@ -3010,6 +3060,7 @@ scan_request(char *c) {
                         de->slen=0;
                         de->next=defdef;
                         de->st=h;
+                        de->alias=NULL;
                         defdef=de;
                     }
                 }

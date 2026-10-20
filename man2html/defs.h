@@ -13,6 +13,7 @@ struct LONGSTRDEF {
     int nr,slen;
     char *longname;
     char *st;
+    LONGSTRDEF *alias;
     LONGSTRDEF *next;
 };
 
