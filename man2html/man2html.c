@@ -54,6 +54,7 @@ int curpos=0;
 static char *scan_troff(char *c, int san, char **result);
 static char *scan_troff_mandoc(char *c, int san, char **result);
 static char *expand_char(int nr);
+static int scan_expression_spaces=1;
 
 static char **argument=NULL;
 
@@ -998,7 +999,10 @@ scan_escape(char *c) {
         case '-': j=-1; c++; break;
         default: break;
         }
-        if (*c=='(') {
+        if (!strncmp(c, "[.$]", 4)) {
+            i=V('.','$');
+            c+=3;
+        } else if (*c=='(') {
             c++;
             i=V(c[0],c[1]);
             c=c+1;
@@ -1007,7 +1011,12 @@ scan_escape(char *c) {
         }
         intd=intdef;
         while (intd && intd->nr!=i) intd=intd->next;
-        if (intd) {
+        if (i == V('.','$')) {
+            intresult=0;
+            if (argument)
+                while (argument[intresult]) intresult++;
+            intresult+=j;
+        } else if (intd) {
             intd->val=intd->val+j*intd->incr;
             intresult=intd->val;
         } else {
@@ -1633,7 +1642,18 @@ char *scan_expression(char *c, int *result) {
         int value=0,value2,sign=1,opex=0;
         char oper='c';
 
-        while (*c && !isspace(*c) && *c!=')') {
+        while (*c && *c!='\n' && *c!=')') {
+            if (*c == ' ' || *c == '\t') {
+                char *next=c;
+                if (!scan_expression_spaces) break;
+                while (*next == ' ' || *next == '\t') next++;
+                if (oper || *next == ')' ||
+                    (*next && strchr("+-*/%<>=&:", *next))) {
+                    c=next;
+                    continue;
+                }
+                break;
+            }
             opex=0;
             switch (*c) {
             case '(':
@@ -2109,6 +2129,67 @@ scan_request(char *c) {
                 for (i=0; i<words; i++) if (wordlist[i]) free(wordlist[i]);
                 owndef->st[deflen+1]=0;
                 *sl='\n';
+        } else if (request_name_end - c == 5 && !strncmp(c, "while", 5)) {
+                char *condition, *block, *body, *close, *body_end;
+                int condition_value, depth;
+
+                condition=request_name_end;
+                while (*condition == ' ' || *condition == '\t')
+                    condition++;
+                if (*condition == '(') condition++;
+                condition=scan_if_expression(condition, &condition_value);
+                while (*condition == ' ' || *condition == '\t')
+                    condition++;
+                block=condition;
+                if (*block != escapesym || block[1] != '{') {
+                    unknown=1;
+                } else {
+                    body=strchr(block, '\n');
+                    if (!body) {
+                        unknown=1;
+                    } else {
+                        body++;
+                        close=NULL;
+                        depth=0;
+                        for (h=block; *h;) {
+                            if (*h != escapesym) {
+                                h++;
+                                continue;
+                            }
+                            if (h[1] == escapesym) {
+                                h+=2;
+                                continue;
+                            }
+                            if (h[1] == '{') depth++;
+                            else if (h[1] == '}' && --depth == 0) {
+                                close=h;
+                                break;
+                            }
+                            if (h[1]) h+=2; else h++;
+                        }
+                        if (!close) {
+                            unknown=1;
+                        } else {
+                            body_end=close;
+                            while (body_end > body && body_end[-1] != '\n')
+                                body_end--;
+                            {
+                                char endchar=*body_end;
+                                *body_end=0;
+                                while (condition_value) {
+                                    scan_troff(body, 0, NULL);
+                                    condition=request_name_end;
+                                    while (*condition == ' ' || *condition == '\t')
+                                        condition++;
+                                    if (*condition == '(') condition++;
+                                    scan_if_expression(condition, &condition_value);
+                                }
+                                *body_end=endchar;
+                            }
+                            c=skip_till_newline(close);
+                        }
+                    }
+                }
         } else switch (i) {
         case V('C','D'):
             {
@@ -2551,19 +2632,27 @@ scan_request(char *c) {
                 break;
             }
         case V('t','a'):
-            c=c+j;
-            j=0;
-            while (*c!='\n') {
-                sl=scan_expression(c, &tabstops[j]);
-                if (j && (*c == '-' || *c == '+')) tabstops[j]+=tabstops[j-1];
-                c=sl;
-                while (*c == ' ' || *c == '\t') c++;
-                if (j+1 < SIZE(tabstops))
-                    j++;
+            {
+                int old_expression_spaces=scan_expression_spaces;
+                c=c+j;
+                j=0;
+                while (*c && *c!='\n') {
+                    while (*c == ' ' || *c == '\t') c++;
+                    if (!*c || *c == '\n') break;
+                    scan_expression_spaces=0;
+                    sl=scan_expression(c, &tabstops[j]);
+                    scan_expression_spaces=old_expression_spaces;
+                    if (j && (*c == '-' || *c == '+'))
+                        tabstops[j]+=tabstops[j-1];
+                    c=sl;
+                    if (j+1 < SIZE(tabstops))
+                        j++;
+                }
+                scan_expression_spaces=old_expression_spaces;
+                maxtstop=j;
+                curpos=0;
+                break;
             }
-            maxtstop=j;
-            curpos=0;
-            break;
         case V('t','i'):
 #if 0
             dl_down();
