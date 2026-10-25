@@ -2795,6 +2795,40 @@ scan_request(char *c) {
         case V('P','D'):
              c=skip_till_newline(c);
              break;
+        case V('D','S'):        /* -ms display start */
+        {
+            char *p = c + j;
+            while (*p == ' ' || *p == '\t') p++;
+            /* Skip display-type argument (L, I, C, B, R) if present. */
+            while (*p && *p != '\n') p++;
+            if (*p == '\n') p++;
+            p = skip_blank_lines(p);
+            if (*p == '.' && p[1] == 'T' && p[2] == 'S') {
+                /* .DS/.DE are wrapping a tbl table; let .TS/.TE handle it. */
+                c = skip_till_newline(c);
+            } else {
+                /* Preformatted display: preserve whitespace. */
+                if (fillout) {
+                    out_html(change_to_font(0));
+                    out_html(change_to_size('0'));
+                    out_html("<PRE>\n");
+                }
+                curpos = 0;
+                fillout = 0;
+                c = skip_till_newline(c);
+            }
+            break;
+        }
+        case V('D','E'):        /* -ms display end */
+            if (!fillout) {
+                out_html(change_to_font(0));
+                out_html(change_to_size('0'));
+                out_html("</PRE>\n");
+            }
+            curpos = 0;
+            fillout = 1;
+            c = skip_till_newline(c);
+            break;
         case V('R','s'):        /* BSD mandoc */
         case V('R','S'):
             sl = fill_words(c+j, wordlist, SIZE(wordlist), &words, '\n');
