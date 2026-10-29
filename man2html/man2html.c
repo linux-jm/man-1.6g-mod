@@ -2083,6 +2083,23 @@ scan_request(char *c) {
             c = scan_escape(c+1);
     } else {
         i = V2(c[0], c[1]);
+        /* .Tp is used in FreeBSD man pages as a tagged paragraph macro
+         * that is typically defined as a wrapper around .TP.
+         * man2html cannot execute a .TP that is nested inside a user macro
+         * (the tag line would be consumed from the macro body instead of
+         * the caller's input), so handle .Tp as a built-in .TP equivalent.
+         */
+        if (i == V('T','p')) {
+            dl_begin();
+            c=skip_till_newline(c);
+            c=skip_blank_lines(c);
+            if (!*c) still_dd=1; else {
+                c=scan_troff(c,1,NULL);
+                out_html("<DD>");
+            }
+            curpos=0;
+            return c;
+        }
         request_name_end = c;
         while (*request_name_end && !isspace((unsigned char)*request_name_end))
             request_name_end++;
@@ -3077,6 +3094,47 @@ scan_request(char *c) {
                     c=scan_expression(c,&intd->incr);
                 }
                 c=skip_till_newline(c);
+                break;
+            }
+        case V('r','r'):
+            /* .rr R1 R2 ... : remove number register(s) */
+            {
+                INTDEF *intd, *prev;
+                c = c + j;
+                while (*c && *c != '\n') {
+                    char *name;
+                    size_t namelen;
+                    int r;
+
+                    while (*c == ' ' || *c == '\t')
+                        c++;
+                    if (*c == '\n' || !*c)
+                        break;
+                    name = c;
+                    while (*c && !isspace((unsigned char)*c))
+                        c++;
+                    namelen = c - name;
+                    if (namelen == 0)
+                        continue;
+                    if (namelen == 1)
+                        r = V(name[0], ' ');
+                    else
+                        r = V(name[0], name[1]);
+                    prev = NULL;
+                    intd = intdef;
+                    while (intd && intd->nr != r) {
+                        prev = intd;
+                        intd = intd->next;
+                    }
+                    if (intd) {
+                        if (prev)
+                            prev->next = intd->next;
+                        else
+                            intdef = intd->next;
+                        free(intd);
+                    }
+                }
+                c = skip_till_newline(c);
                 break;
             }
         case V('t','r'):
