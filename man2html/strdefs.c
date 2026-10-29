@@ -317,16 +317,29 @@ void stdinit(void) {
     }
     strdef=&standardstring[0];
 
-    intdef=&standardint[0];
-    i=0;
-    while (intdef->nr) {
-	if (intdef->nr == NROFF) intdef->nr = nroff; else
-	if (intdef->nr == TROFF) intdef->nr = !nroff;
-	intdef->next = &standardint[i];
-	intdef = intdef->next;
-	i++;
+    {
+	INTDEF *copy_head = NULL;
+	INTDEF *copy_tail = NULL;
+	INTDEF *stdi = &standardint[0];
+	while (stdi->nr) {
+	    INTDEF *copy = (INTDEF *) xmalloc(sizeof(INTDEF));
+	    copy->nr = stdi->nr;
+	    if (copy->nr == NROFF) copy->nr = nroff; else
+	    if (copy->nr == TROFF) copy->nr = !nroff;
+	    copy->val = stdi->val;
+	    copy->incr = stdi->incr;
+	    copy->next = NULL;
+	    if (copy_tail) {
+		copy_tail->next = copy;
+		copy_tail = copy;
+	    } else {
+		copy_head = copy;
+		copy_tail = copy;
+	    }
+	    stdi++;
+	}
+	intdef = copy_head;
     }
-    intdef = &standardint[0];
     defdef = NULL;
 }
 
