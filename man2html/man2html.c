@@ -3040,6 +3040,11 @@ scan_request(char *c) {
                 if (de) de->nr=j;
                 break;
             }
+        case V('L','O'):
+            /* .LO N : unknown */
+        case V('S','P'):
+        case V('S','p'):
+            /* .SP / .Sp : vertical spaces */
         case V('U','C'):
             /* .UC N : BSD version N */
         case V('a','d'):
@@ -3052,6 +3057,10 @@ scan_request(char *c) {
             /* .hy : hyphenation */
         case V('i','n'):
             /* .in +-N : Indent */
+        case V('l','f'):
+            /* .lf : line and file */
+        case V('l','l'):
+            /* .ll : line width */
         case V('m','s'):
             /* .mso : macro .so */
         case V('n','a'):
