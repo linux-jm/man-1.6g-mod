@@ -2047,6 +2047,69 @@ resolve_macro_alias(LONGSTRDEF *macro) {
     return macro;
 }
 
+/* Register name as an empty macro so that lines like ".name"
+ * are recognized as macro calls (with no effect) rather than
+ * unknown requests.  Used for the delimiters passed to .ig.
+ */
+static void
+register_empty_macro(char *name)
+{
+    int nr;
+    LONGSTRDEF *de;
+
+    if (!name || !*name)
+        return;
+    nr = (name[1] == '\0') ? V(name[0], ' ') : V(name[0], name[1]);
+    de = find_longstrdef(defdef, nr, name, NULL);
+    if (!de) {
+        de = (LONGSTRDEF *) xmalloc(sizeof(LONGSTRDEF));
+        if (de) {
+            de->nr = nr;
+            de->longname = xstrdup(name);
+            de->slen = 0;
+            de->st = NULL;
+            de->alias = NULL;
+            de->next = defdef;
+            defdef = de;
+        }
+    }
+}
+
+/* Pre-scan the input buffer for .ig requests and register their
+ * end-macro arguments as empty macros.  This ensures that conditional
+ * uses such as ".if \\n(zZ=1 .ig zZ" still make ".zZ" a known macro
+ * when the condition is false.
+ */
+static void
+predefine_ig_macros(char *buf)
+{
+    char *p = buf;
+
+    while (*p) {
+        if (p[0] == controlsym && p[1] == 'i' && p[2] == 'g') {
+            char *name_start = p + 3;
+            char *name_end;
+            char saved;
+
+            while (*name_start == ' ' || *name_start == '\t')
+                name_start++;
+            if (*name_start && *name_start != '\n' &&
+                *name_start != escapesym) {
+                name_end = name_start;
+                while (*name_end && !isspace((unsigned char)*name_end))
+                    name_end++;
+                if (name_end > name_start) {
+                    saved = *name_end;
+                    *name_end = '\0';
+                    register_empty_macro(name_start);
+                    *name_end = saved;
+                }
+            }
+        }
+        p++;
+    }
+}
+
 static char *
 scan_request(char *c) {
                                   /* BSD Mandoc stuff - by Michael Hamilton */
@@ -2116,36 +2179,40 @@ scan_request(char *c) {
                 char **oldargument;
                 int deflen;
                 int onff;
-                sl=fill_words(request_name_end, wordlist, SIZE(wordlist), &words, '\n');
-                c=sl+1;
-                *sl=0;
-                for (i=1; i<words; i++)
-                    wordlist[i][-1]=0;
-                for (i=0; i<words; i++) {
-                    char *hl=NULL;
+                if (!owndef->st || !*owndef->st) {
+                    c = skip_till_newline(request_name_end);
+                } else {
+                    sl=fill_words(request_name_end, wordlist, SIZE(wordlist), &words, '\n');
+                    c=sl+1;
+                    *sl=0;
+                    for (i=1; i<words; i++)
+                        wordlist[i][-1]=0;
+                    for (i=0; i<words; i++) {
+                        char *hl=NULL;
+                        if (mandoc_command)
+                             scan_troff_mandoc(wordlist[i],1,&hl);
+                        else
+                             scan_troff(wordlist[i],2,&hl);
+                        wordlist[i]=hl;
+                    }
+                    for (i=words; i<SIZE(wordlist); i++)
+                        wordlist[i]=NULL;
+                    deflen = strlen(owndef->st);
+                    owndef->st[deflen+1]='a';
+                    for (i=0; (owndef->st[deflen+2+i] = owndef->st[i]); i++);
+                    oldargument=argument;
+                    argument=wordlist;
+                    onff=newline_for_fun;
                     if (mandoc_command)
-                         scan_troff_mandoc(wordlist[i],1,&hl);
+                         scan_troff_mandoc(owndef->st+deflen+2, 0, NULL);
                     else
-                         scan_troff(wordlist[i],2,&hl);
-                    wordlist[i]=hl;
+                         scan_troff(owndef->st+deflen+2, 0, NULL);
+                    newline_for_fun=onff;
+                    argument=oldargument;
+                    for (i=0; i<words; i++) if (wordlist[i]) free(wordlist[i]);
+                    owndef->st[deflen+1]=0;
+                    *sl='\n';
                 }
-                for (i=words; i<SIZE(wordlist); i++)
-                    wordlist[i]=NULL;
-                deflen = strlen(owndef->st);
-                owndef->st[deflen+1]='a';
-                for (i=0; (owndef->st[deflen+2+i] = owndef->st[i]); i++);
-                oldargument=argument;
-                argument=wordlist;
-                onff=newline_for_fun;
-                if (mandoc_command)
-                     scan_troff_mandoc(owndef->st+deflen+2, 0, NULL);
-                else
-                     scan_troff(owndef->st+deflen+2, 0, NULL);
-                newline_for_fun=onff;
-                argument=oldargument;
-                for (i=0; i<words; i++) if (wordlist[i]) free(wordlist[i]);
-                owndef->st[deflen+1]=0;
-                *sl='\n';
         } else if (request_name_end - c == 5 && !strncmp(c, "while", 5)) {
                 char *condition, *block, *body, *close, *body_end;
                 int condition_value, depth;
@@ -2546,9 +2613,19 @@ scan_request(char *c) {
                 if (*c == escapesym && c[1] == '"')
                     while (*c != '\n') c++;
                 if (*c!='\n') { /* .ig yy: ignore until .yy, then call .yy */
+                    char saved;
+                    char *name_end;
                     endwith=c-1;i=1;
                     c[-1]='.';
                     while (*c && *c!='\n') c++,i++;
+                    /* Register the delimiter name as an empty macro. */
+                    name_end = endwith+1;
+                    while (name_end < endwith+i && !isspace((unsigned char)*name_end))
+                        name_end++;
+                    saved = *name_end;
+                    *name_end = '\0';
+                    register_empty_macro(endwith+1);
+                    *name_end = saved;
                 }
                 c++;
                 while (*c && strncmp(c,endwith,i))
@@ -4194,6 +4271,7 @@ main(int argc, char **argv) {
     idxfile = fopen(INDEXFILE, "a");
 #endif
     stdinit();
+    predefine_ig_macros(buf);
 
     scan_troff(buf+1,0,NULL);
          close_ur_link();
