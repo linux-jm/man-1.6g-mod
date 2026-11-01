@@ -2111,6 +2111,72 @@ predefine_ig_macros(char *buf)
 }
 
 static char *
+scan_request_while(char *request_name_end)
+{
+    char *condition, *block, *body, *close, *body_end;
+    int condition_value, depth;
+    char *h;
+
+    condition = request_name_end;
+    while (*condition == ' ' || *condition == '\t')
+        condition++;
+    if (*condition == '(')
+        condition++;
+    condition = scan_if_expression(condition, &condition_value);
+    while (*condition == ' ' || *condition == '\t')
+        condition++;
+    block = condition;
+    if (*block != escapesym || block[1] != '{')
+        return NULL;
+    body = strchr(block, '\n');
+    if (!body)
+        return NULL;
+    body++;
+    close = NULL;
+    depth = 0;
+    for (h = block; *h;) {
+        if (*h != escapesym) {
+            h++;
+            continue;
+        }
+        if (h[1] == escapesym) {
+            h += 2;
+            continue;
+        }
+        if (h[1] == '{')
+            depth++;
+        else if (h[1] == '}' && --depth == 0) {
+            close = h;
+            break;
+        }
+        if (h[1])
+            h += 2;
+        else
+            h++;
+    }
+    if (!close)
+        return NULL;
+    body_end = close;
+    while (body_end > body && body_end[-1] != '\n')
+        body_end--;
+    {
+        char endchar = *body_end;
+        *body_end = 0;
+        while (condition_value) {
+            scan_troff(body, 0, NULL);
+            condition = request_name_end;
+            while (*condition == ' ' || *condition == '\t')
+                condition++;
+            if (*condition == '(')
+                condition++;
+            scan_if_expression(condition, &condition_value);
+        }
+        *body_end = endchar;
+    }
+    return skip_till_newline(close);
+}
+
+static char *
 scan_request(char *c) {
                                   /* BSD Mandoc stuff - by Michael Hamilton */
     static int mandoc_synopsis=0; /* True if we are in the synopsis section */
@@ -2214,66 +2280,11 @@ scan_request(char *c) {
                     *sl='\n';
                 }
         } else if (request_name_end - c == 5 && !strncmp(c, "while", 5)) {
-                char *condition, *block, *body, *close, *body_end;
-                int condition_value, depth;
-
-                condition=request_name_end;
-                while (*condition == ' ' || *condition == '\t')
-                    condition++;
-                if (*condition == '(') condition++;
-                condition=scan_if_expression(condition, &condition_value);
-                while (*condition == ' ' || *condition == '\t')
-                    condition++;
-                block=condition;
-                if (*block != escapesym || block[1] != '{') {
-                    unknown=1;
-                } else {
-                    body=strchr(block, '\n');
-                    if (!body) {
-                        unknown=1;
-                    } else {
-                        body++;
-                        close=NULL;
-                        depth=0;
-                        for (h=block; *h;) {
-                            if (*h != escapesym) {
-                                h++;
-                                continue;
-                            }
-                            if (h[1] == escapesym) {
-                                h+=2;
-                                continue;
-                            }
-                            if (h[1] == '{') depth++;
-                            else if (h[1] == '}' && --depth == 0) {
-                                close=h;
-                                break;
-                            }
-                            if (h[1]) h+=2; else h++;
-                        }
-                        if (!close) {
-                            unknown=1;
-                        } else {
-                            body_end=close;
-                            while (body_end > body && body_end[-1] != '\n')
-                                body_end--;
-                            {
-                                char endchar=*body_end;
-                                *body_end=0;
-                                while (condition_value) {
-                                    scan_troff(body, 0, NULL);
-                                    condition=request_name_end;
-                                    while (*condition == ' ' || *condition == '\t')
-                                        condition++;
-                                    if (*condition == '(') condition++;
-                                    scan_if_expression(condition, &condition_value);
-                                }
-                                *body_end=endchar;
-                            }
-                            c=skip_till_newline(close);
-                        }
-                    }
-                }
+            char *new_c = scan_request_while(request_name_end);
+            if (new_c)
+                c = new_c;
+            else
+                unknown = 1;
         } else switch (i) {
         case V('C','D'):
             {
