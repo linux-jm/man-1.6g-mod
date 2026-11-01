@@ -3,7 +3,7 @@
 #include <string.h>
 
 #ifndef NULL
-#define NULL	((void *) 0)
+#define NULL    ((void *) 0)
 #endif
 
 int nroff = 1;
@@ -55,7 +55,7 @@ static STRDEF standardstring[] = {
 };
 
 static STRDEF standardchar[] = {
-    { V('*','*'), 1, "*", NULL  },	/* math star */
+    { V('*','*'), 1, "*", NULL  },      /* math star */
     { V('*','A'), 1, "&Alpha;", NULL },
     { V('*','B'), 1, "&Beta;", NULL },
     { V('*','C'), 1, "&Xi;", NULL },
@@ -212,8 +212,8 @@ static STRDEF standardchar[] = {
     { V('d','g'), 1, "-", NULL },
     { V('d','i'), 1, "&#247;", NULL  },
     { V('d','q'), 1, "&quot;", NULL  },
-    { V('e','m'), 3, "---", NULL  }, 	/* em dash */
-    { V('e','n'), 1, "-", NULL }, 	/* en dash */
+    { V('e','m'), 3, "---", NULL  },    /* em dash */
+    { V('e','n'), 1, "-", NULL },       /* en dash */
     { V('e','q'), 1, "=", NULL },
     { V('e','s'), 1, "&#216;", NULL  },
     { V('e','u'), 1, "&euro;", NULL },
@@ -250,7 +250,7 @@ static STRDEF standardchar[] = {
     { V('o','e'), 1, "&oelig;", NULL },
     { V('o','q'), 1, "'", NULL },
     { V('o','r'), 1, "|", NULL },
-    { V('p','d'), 1, "d", NULL }, 	/* partial derivative */
+    { V('p','d'), 1, "d", NULL },       /* partial derivative */
     { V('p','l'), 1, "+", NULL },
     { V('p','s'), 1, "&para;", NULL },
     { V('r','!'), 1, "&iexcl;", NULL },
@@ -276,7 +276,7 @@ static STRDEF standardchar[] = {
     { V('t','f'), 1, "&there4;", NULL },
     { V('t','i'), 1, "~", NULL },
     { V('t','m'), 1, "&trade;", NULL },
-    { V('t','s'), 1, "s", NULL }, 	/* should be terminal sigma */
+    { V('t','s'), 1, "s", NULL },       /* should be terminal sigma */
     { V('u','A'), 1, "&uArr;", NULL },
     { V('u','a'), 1, "&uarr;", NULL },
     { V('u','l'), 1, "_", NULL },
@@ -298,47 +298,47 @@ void stdinit(void) {
     stdf = &standardchar[0];
     i = 0;
     while (stdf->nr) {
-	if (stdf->st) stdf->st = xstrdup(stdf->st);
-	stdf->next = &standardchar[i];
-	stdf = stdf->next;
-	i++;
+        if (stdf->st) stdf->st = xstrdup(stdf->st);
+        stdf->next = &standardchar[i];
+        stdf = stdf->next;
+        i++;
     }
     chardef=&standardchar[0];
 
     stdf=&standardstring[0];
     i=0;
     while (stdf->nr) {
-	 /* waste a little memory, and make a copy, to avoid
-	    the segfault when we free non-malloced memory */
-	if (stdf->st) stdf->st = xstrdup(stdf->st);
-	stdf->next = &standardstring[i];
-	stdf = stdf->next;
-	i++;
+         /* waste a little memory, and make a copy, to avoid
+            the segfault when we free non-malloced memory */
+        if (stdf->st) stdf->st = xstrdup(stdf->st);
+        stdf->next = &standardstring[i];
+        stdf = stdf->next;
+        i++;
     }
     strdef=&standardstring[0];
 
     {
-	INTDEF *copy_head = NULL;
-	INTDEF *copy_tail = NULL;
-	INTDEF *stdi = &standardint[0];
-	while (stdi->nr) {
-	    INTDEF *copy = (INTDEF *) xmalloc(sizeof(INTDEF));
-	    copy->nr = stdi->nr;
-	    if (copy->nr == NROFF) copy->nr = nroff; else
-	    if (copy->nr == TROFF) copy->nr = !nroff;
-	    copy->val = stdi->val;
-	    copy->incr = stdi->incr;
-	    copy->next = NULL;
-	    if (copy_tail) {
-		copy_tail->next = copy;
-		copy_tail = copy;
-	    } else {
-		copy_head = copy;
-		copy_tail = copy;
-	    }
-	    stdi++;
-	}
-	intdef = copy_head;
+        INTDEF *copy_head = NULL;
+        INTDEF *copy_tail = NULL;
+        INTDEF *stdi = &standardint[0];
+        while (stdi->nr) {
+            INTDEF *copy = (INTDEF *) xmalloc(sizeof(INTDEF));
+            copy->nr = stdi->nr;
+            if (copy->nr == NROFF) copy->nr = nroff; else
+            if (copy->nr == TROFF) copy->nr = !nroff;
+            copy->val = stdi->val;
+            copy->incr = stdi->incr;
+            copy->next = NULL;
+            if (copy_tail) {
+                copy_tail->next = copy;
+                copy_tail = copy;
+            } else {
+                copy_head = copy;
+                copy_tail = copy;
+            }
+            stdi++;
+        }
+        intdef = copy_head;
     }
     defdef = NULL;
 }
@@ -346,20 +346,20 @@ void stdinit(void) {
 
 LONGSTRDEF* find_longstrdef(LONGSTRDEF * head, int nr, char * longname, char ** out_longname)
 {
-	char *p, c;
-	LONGSTRDEF *de;
-	
-	p = longname;
-	while (p && !isspace(*p)) p++;
-	c = *p;
-	*p = 0;
+    char *p, c;
+    LONGSTRDEF *de;
 
-	de = head;
-	while (de && (de->nr != nr || (de->longname && strcmp(longname, de->longname))))
-		de = de->next;
+    p = longname;
+    while (p && !isspace(*p)) p++;
+    c = *p;
+    *p = 0;
 
-	if (out_longname)
-		*out_longname = de ? de->longname : xstrdup(longname);
-	*p = c;
-	return de;
+    de = head;
+    while (de && (de->nr != nr || (de->longname && strcmp(longname, de->longname))))
+        de = de->next;
+
+    if (out_longname)
+        *out_longname = de ? de->longname : xstrdup(longname);
+    *p = c;
+    return de;
 }
